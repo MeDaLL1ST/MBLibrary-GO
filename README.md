@@ -5,7 +5,8 @@ Example of use:
 go get github.com/MeDaLL1ST/MBLibrary-GO
 
 
-mb := Init("host:port", "api_key", "http")
+	import mbl "github.com/MeDaLL1ST/MBLibrary-GO"
+	mb := mbl.Init("host:port", "api_key", "http")
 	defer mb.Close()
 	err := mb.Add("qwe", "----123------")
 	if err != nil {
