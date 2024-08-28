@@ -1,4 +1,4 @@
-package main
+package mblibrarygo
 
 import (
 	"bytes"
