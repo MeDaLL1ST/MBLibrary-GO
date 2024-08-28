@@ -1,4 +1,4 @@
-Golang library for MessageBroker:
+Golang library for MessageBroker: https://github.com/MeDaLL1ST/MessageBroker
 
 Example of use:
 
@@ -6,6 +6,8 @@ go get github.com/MeDaLL1ST/MBLibrary-GO
 
 
 	import mbl "github.com/MeDaLL1ST/MBLibrary-GO"
+
+ 
 	mb := mbl.Init("host:port", "api_key", "http")
 	defer mb.Close()
 	err := mb.Add("qwe", "----123------")
