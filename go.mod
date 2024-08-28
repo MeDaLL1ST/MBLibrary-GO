@@ -1,4 +1,4 @@
-module mblibrarygo
+module github.com/MeDaLL1ST/MBLibrary-GO
 
 go 1.22.2
 
