@@ -18,6 +18,9 @@ go get github.com/MeDaLL1ST/MBLibrary-GO
 	if err != nil {
 		fmt.Println(err)
 	}
+ 	go func() {
+		fmt.Println(mb.ReadSync("qwe1", func() { fmt.Println(mb.ReadSync("qwe2")) }))
+	}()
 	message, _ := mb.Read()
 
 	keys, err := mb.List()
