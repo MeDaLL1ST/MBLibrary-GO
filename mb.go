@@ -202,3 +202,36 @@ func (mb *Mb) Read() (string, error) {
 	_, msg, err := mb.ws.ReadMessage()
 	return string(msg), err
 }
+
+func (mb *Mb) ReadSync(key string) (string, error) {
+	headers := http.Header{}
+	headers.Add("Authorization", mb.api_key)
+	u1 := url.URL{Scheme: "ws", Host: mb.host, Path: "/subscribe"}
+	c, _, err := websocket.DefaultDialer.Dial(u1.String(), headers)
+	defer c.Close()
+	if err != nil {
+		return "", fmt.Errorf("Error by connecting to WebSocket: %v", err)
+	}
+
+	// Создаем JSON-пayload для отправки
+	payload := map[string]string{
+		"key": key,
+	}
+
+	// Преобразуем payload в байтовый массив
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("Error marshaling JSON: %v", err)
+	}
+
+	// Отправляем сообщение
+	err = c.WriteMessage(websocket.TextMessage, jsonBytes)
+	if err != nil {
+		return "", fmt.Errorf("Error sending message to WebSocket: %v", err)
+	}
+	_, msg, err := c.ReadMessage()
+	if err != nil {
+		return "", fmt.Errorf("Error reading message from WebSocket: %v", err)
+	}
+	return string(msg), nil
+}
