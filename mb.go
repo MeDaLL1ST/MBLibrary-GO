@@ -31,11 +31,6 @@ func (mb *Mb) Add(key string, value string) error {
 		"value": value,
 	}
 
-	// Генерируем checksum
-	datah := []byte(key + value + mb.api_key)
-	hash := sha256.Sum256(datah)
-	data["checksum"] = fmt.Sprintf("%x", hash[:])
-
 	// Преобразуем data в JSON
 	jsonData, err := json.Marshal(data)
 	if err != nil {
@@ -49,7 +44,7 @@ func (mb *Mb) Add(key string, value string) error {
 
 	// Добавляем заголовок Content-Type
 	req.Header.Set("Content-Type", "application/json")
-
+	req.Header.Set("Authorization", mb.api_key)
 	// Добавляем данные в тело запроса
 	req.Body = ioutil.NopCloser(bytes.NewReader(jsonData))
 
