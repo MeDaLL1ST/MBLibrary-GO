@@ -189,6 +189,25 @@ func (mb *Mb) Subscribe(key string) error {
 	return nil
 }
 
+func (mb *Mb) ReSubscribe(key string) error {
+	payload := map[string]string{
+		"key": key,
+	}
+
+	// Преобразуем payload в байтовый массив
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("Error marshaling JSON: %v", err)
+	}
+
+	// Отправляем сообщение
+	err = mb.ws.WriteMessage(websocket.TextMessage, jsonBytes)
+	if err != nil {
+		return fmt.Errorf("Error sending message to WebSocket: %v", err)
+	}
+	return nil
+}
+
 func (mb *Mb) Close() {
 	mb.ws.Close()
 }
