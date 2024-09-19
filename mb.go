@@ -2,12 +2,12 @@ package mblibrarygo
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -19,9 +19,75 @@ type Mb struct {
 	ws      *websocket.Conn
 }
 
-func Init(host string, api_key string, scheme string) *Mb {
+type Gw struct {
+	host    string
+	api_key string
+	scheme  string
+}
+
+type node struct {
+	Id     int      `json:"Id"`
+	Topics []string `json:"Topics"`
+	IP     string   `json:"IP"`
+	Scheme string   `json:"Scheme"`
+	APIKey string   `json:"APIKey"`
+}
+
+func InitMb(host string, api_key string, scheme string) *Mb {
 	mb := &Mb{host: host, api_key: api_key, scheme: scheme}
 	return mb
+}
+
+func InitGw(host string, api_key string, scheme string) *Gw {
+	gw := &Gw{host: host, api_key: api_key, scheme: scheme}
+	return gw
+}
+
+func (gw *Gw) Add(key string, value string, topic ...string) error {
+
+	data := make(map[string]interface{})
+
+	if len(topic) > 0 {
+		data["key"] = key
+		data["value"] = value
+		data["topic"] = topic[0]
+
+	} else {
+		data["key"] = key
+		data["value"] = value
+	}
+
+	// Преобразуем data в JSON
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("error marshaling JSON: %v", err)
+	}
+	// Отправляем POST-запрос
+	req, err := http.NewRequest("GET", gw.scheme+"://"+gw.host+"/add", nil)
+	if err != nil {
+		return fmt.Errorf("error creating request: %v", err)
+	}
+
+	// Добавляем заголовок Content-Type
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", gw.api_key)
+	// Добавляем данные в тело запроса
+	req.Body = ioutil.NopCloser(bytes.NewReader(jsonData))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err //fmt.Errorf("error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Читаем ответ
+	_, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response: %v", err)
+	}
+
+	return nil
 }
 
 func (mb *Mb) Add(key string, value string) error {
@@ -62,6 +128,40 @@ func (mb *Mb) Add(key string, value string) error {
 	}
 
 	return nil
+}
+
+func (gw *Gw) Info() ([]node, error) {
+
+	// Отправляем POST-запрос
+	req, err := http.NewRequest("GET", gw.scheme+"://"+gw.host+"/info", nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %v", err)
+	}
+
+	// Добавляем заголовок Content-Type
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", gw.api_key)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Читаем ответ
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response: %v", err)
+	}
+	// Парсим JSON
+	var jsonData map[string][]node
+	err = json.Unmarshal(body, &jsonData)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
+	}
+
+	return jsonData["nodes"], nil
 }
 
 func (mb *Mb) List() ([]interface{}, error) {
@@ -245,6 +345,68 @@ func (mb *Mb) ReadSync(key string, functions ...func()) (string, error) {
 	for _, fn := range functions {
 		go fn()
 	}
+	_, msg, err := c.ReadMessage()
+	if err != nil {
+		return "", fmt.Errorf("Error reading message from WebSocket: %v", err)
+	}
+	return string(msg), nil
+}
+
+func (gw *Gw) ReadSync(key string, topic string, functions ...func()) (string, error) {
+
+	nodes, err := gw.Info()
+	if err != nil {
+		return "", fmt.Errorf("Error getting info: %v", err)
+	}
+
+	var target_node node
+	exists := false
+	for _, nd := range nodes {
+		for _, top := range nd.Topics {
+			if top == topic {
+				exists = true
+				target_node = nd
+			}
+		}
+	}
+
+	if !exists {
+		return "", fmt.Errorf("No some topic")
+	}
+
+	if target_node.APIKey == "" {
+		target_node.APIKey = gw.api_key
+	}
+
+	headers := http.Header{}
+	headers.Add("Authorization", target_node.APIKey)
+	u1 := url.URL{Scheme: "ws", Host: target_node.IP, Path: "/subscribe"}
+	c, _, err := websocket.DefaultDialer.Dial(u1.String(), headers)
+	if err != nil {
+		return "", fmt.Errorf("Error by connecting to WebSocket: %v", err)
+	}
+	defer c.Close()
+	// Создаем JSON-пayload для отправки
+	payload := map[string]string{
+		"key": key,
+	}
+
+	// Преобразуем payload в байтовый массив
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("Error marshaling JSON: %v", err)
+	}
+
+	// Отправляем сообщение
+	err = c.WriteMessage(websocket.TextMessage, jsonBytes)
+	if err != nil {
+		return "", fmt.Errorf("Error sending message to WebSocket: %v", err)
+	}
+	time.Sleep(time.Millisecond * 50)
+	for _, fn := range functions {
+		go fn()
+	}
+
 	_, msg, err := c.ReadMessage()
 	if err != nil {
 		return "", fmt.Errorf("Error reading message from WebSocket: %v", err)

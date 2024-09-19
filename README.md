@@ -8,7 +8,7 @@ go get github.com/MeDaLL1ST/MBLibrary-GO
 	import mbl "github.com/MeDaLL1ST/MBLibrary-GO"
 
  
-	mb := mbl.Init("host:port", "api_key", "http")
+	mb := mbl.InitMb("host:port", "api_key", "http")
 	defer mb.Close()
 	err := mb.Add("qwe", "----123------")
 	if err != nil {
@@ -33,3 +33,11 @@ go get github.com/MeDaLL1ST/MBLibrary-GO
 	}
 	fmt.Println(mb.Info("qwe1"))
 	log.Printf("Got message by WebSocket: %s", message)
+
+	gw := InitGw("host:port", "api_key", "http")
+	gw.Add("qwe16", "data1", "topic3")
+	ans, err := gw.ReadSync("qwe17", "topic3", func() { gw.Add("qwe17", "data2", "topic3") })
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+	fmt.Println(ans)
